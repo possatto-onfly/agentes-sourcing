@@ -9,7 +9,7 @@ st.markdown("""
 <style>
   header, footer, #MainMenu {visibility: hidden;}
   .block-container {padding: 0 !important; max-width: 100% !important;}
-  iframe {display: block;}
+  iframe {display: block; height: 100vh !important;}
 </style>
 """, unsafe_allow_html=True)
 
