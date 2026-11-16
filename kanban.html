@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controle de tarefas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F7FA; --card: #fff; --line: #E6E9EE; --ink: #12161C; --ink2: #4A5361; --ink3: #6B7482;
+    --brand: #009EFB; --brand-d: #0077BD; --brand-bg: #E6F4FE;
+    --ok: #0F7B3E; --ok-bg: #E4F6EA; --warn: #8A5A00; --warn-bg: #FFF3D6; --bad: #B42318; --bad-bg: #FDE9E7;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: Poppins, system-ui, sans-serif; }
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 20px 32px; background: #fff; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { font-size: 14px; color: var(--ink2); margin-top: 2px; }
+  .tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .sync { font-size: 12px; color: var(--ink3); }
+  button.ghost { height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); font: 500 14px Poppins, sans-serif; cursor: pointer; }
+  button.ghost:hover { background: var(--bg); }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--brand-d); outline-offset: 2px; }
+  .filters { display: flex; gap: 8px; padding: 16px 32px 0; flex-wrap: wrap; }
+  .chip { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink2); font: 500 12px Poppins, sans-serif; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--brand-bg); border-color: var(--brand); color: var(--brand-d); }
+  .board { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 20px 32px 32px; align-items: start; }
+  @media (max-width: 860px) { .board { grid-template-columns: 1fr; padding: 16px; } header, .filters { padding-left: 16px; padding-right: 16px; } }
+  .col { background: #EDF0F4; border-radius: 16px; padding: 12px; min-height: 240px; display: flex; flex-direction: column; gap: 10px; transition: background .15s, outline-color .15s; outline: 2px dashed transparent; }
+  .col.over { background: var(--brand-bg); outline-color: var(--brand); }
+  .col-h { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 2px; }
+  .col-t { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 999px; }
+  .count { min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: #fff; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; color: var(--ink2); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; cursor: grab; box-shadow: 0 1px 2px rgba(18,22,28,.05); transition: box-shadow .15s, transform .15s; }
+  .card:hover { box-shadow: 0 6px 16px rgba(18,22,28,.10); transform: translateY(-1px); }
+  .card.drag { opacity: .45; }
+  .card.done .title { text-decoration: line-through; color: var(--ink3); }
+  .title { font-size: 14px; font-weight: 500; line-height: 1.4; margin: 0; text-wrap: pretty; }
+  .meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--bg); color: var(--ink2); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.gm { background: var(--brand-bg); color: var(--brand-d); }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; color: var(--ink2); }
+  .av { width: 28px; height: 28px; flex: none; border-radius: 999px; background: var(--brand-bg); color: var(--brand-d); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+  .who span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acts { display: flex; align-items: center; gap: 6px; }
+  select.mv { height: 28px; border-radius: 8px; border: 1px solid var(--line); background: #fff; font: 12px Poppins, sans-serif; color: var(--ink2); }
+  a.mail { color: var(--brand-d); font-size: 12px; font-weight: 500; text-decoration: none; }
+  a.mail:hover { text-decoration: underline; }
+  .empty { text-align: center; font-size: 12px; color: var(--ink3); padding: 24px 8px; }
+  #msg { padding: 48px 32px; text-align: center; color: var(--ink2); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Controle de tarefas</h1>
+    <div class="sub" id="sub">Carregando…</div>
+  </div>
+  <div class="tools">
+    <span class="sync" id="sync" role="status" aria-live="polite"></span>
+    <button class="ghost" id="refresh" type="button">Atualizar</button>
+  </div>
+</header>
+<div class="filters" role="group" aria-label="Filtrar por origem">
+  <button class="chip" type="button" data-f="todas" aria-pressed="true">Todas</button>
+  <button class="chip" type="button" data-f="Gmail" aria-pressed="false">Gmail</button>
+  <button class="chip" type="button" data-f="Manual" aria-pressed="false">Manuais</button>
+  <button class="chip" type="button" data-f="atrasadas" aria-pressed="false">Atrasadas</button>
+</div>
+<div id="msg" hidden></div>
+<main class="board" id="board"></main>
+
+<script>
+const API = 'https://script.google.com/a/macros/onfly.com.br/s/AKfycbwEWBv_8I9iMRz6d-J3ShfIgYNHNoos7rtVefcgpDm75vQjVSWeDA6a0MEiX-0Pt2lmjA/exec';
+const COLS = [
+  { id: 'a fazer', label: 'A fazer', color: '#6B7482' },
+  { id: 'em andamento', label: 'Em andamento', color: '#009EFB' },
+  { id: 'concluida', label: 'Concluídas', color: '#0F7B3E' }
+];
+let tasks = [], filter = 'todas', dragId = null;
+const $ = s => document.querySelector(s);
+const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const hoje = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const parse = s => s ? new Date(s + 'T00:00:00') : null;
+const fmt = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
+const initials = n => String(n).replace(/[^\p{L} ]/gu, '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '—';
+const late = t => t.status !== 'concluida' && parse(t.prazo) && parse(t.prazo) < hoje();
+
+function setSync(txt) { $('#sync').textContent = txt; }
+
+function load() {
+  setSync('Sincronizando…');
+  return new Promise((res, rej) => {
+    const cb = 'cb' + Date.now(), s = document.createElement('script');
+    const t = setTimeout(() => { s.remove(); delete window[cb]; rej(new Error('tempo esgotado')); }, 40000);
+    window[cb] = d => { clearTimeout(t); s.remove(); delete window[cb]; res(d); };
+    s.onerror = () => { clearTimeout(t); s.remove(); rej(new Error('sem conexão')); };
+    s.src = API + '?tarefas=1&callback=' + cb + '&_=' + Date.now();
+    document.head.appendChild(s);
+  }).then(d => { tasks = d.tarefas || []; $('#msg').hidden = true; setSync('Atualizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })); render(); })
+    .catch(e => { setSync('Erro ao sincronizar'); $('#msg').hidden = false; $('#msg').textContent = 'Não foi possível carregar as tarefas (' + e.message + '). Confira se você está logado com a conta Onfly e se a nova versão do Apps Script foi implantada.'; });
+}
+
+function save(id, status) {
+  setSync('Salvando…');
+  return fetch(API, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ action: 'tarefa', id, status }) })
+    .then(() => setSync('Salvo'))
+    .catch(() => { setSync('Erro ao salvar'); });
+}
+
+function move(id, status) {
+  const t = tasks.find(x => x.id === id);
+  if (!t || t.status === status) return;
+  t.status = status; render(); save(id, status);
+}
+
+function visible() {
+  return tasks.filter(t => filter === 'todas' || (filter === 'atrasadas' ? late(t) : t.origem === filter));
+}
+
+function card(t) {
+  const p = parse(t.prazo), l = late(t);
+  let due = '<span class="badge">Sem prazo</span>';
+  if (p) {
+    const dias = Math.round((p - hoje()) / 86400000);
+    const cls = t.status === 'concluida' ? '' : l ? 'bad' : dias <= 3 ? 'warn' : '';
+    due = '<span class="badge ' + cls + '">' + (l ? 'Atrasada · ' : '') + fmt(p) + '</span>';
+  }
+  const gm = t.origem === 'Gmail';
+  const link = gm ? '<a class="mail" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/' + esc(t.id) + '">Abrir e-mail</a>' : '';
+  const opts = COLS.map(c => '<option value="' + c.id + '"' + (c.id === t.status ? ' selected' : '') + '>' + c.label + '</option>').join('');
+  return '<article class="card ' + (t.status === 'concluida' ? 'done' : '') + '" draggable="true" data-id="' + esc(t.id) + '">' +
+    '<p class="title">' + esc(t.titulo) + '</p>' +
+    '<div class="meta">' + due + '<span class="badge ' + (gm ? 'gm' : '') + '">' + (gm ? 'Gmail' : 'Manual') + '</span></div>' +
+    (t.obs ? '<div class="sub" style="font-size:12px">' + esc(t.obs) + '</div>' : '') +
+    '<div class="foot"><div class="who"><span class="av" aria-hidden="true">' + esc(initials(t.resp)) + '</span><span>' + esc(t.resp) + '</span></div>' +
+    '<div class="acts">' + link + '<select class="mv" aria-label="Mover tarefa ' + esc(t.titulo) + '">' + opts + '</select></div></div></article>';
+}
+
+function render() {
+  const v = visible(), abertas = tasks.filter(t => t.status !== 'concluida'), at = tasks.filter(late).length;
+  $('#sub').textContent = abertas.length + ' abertas · ' + at + ' atrasadas · ' + tasks.filter(t => t.status === 'concluida').length + ' concluídas';
+  $('#board').innerHTML = COLS.map(c => {
+    const items = v.filter(t => t.status === c.id).sort((a, b) => (a.prazo || '9999') < (b.prazo || '9999') ? -1 : 1);
+    return '<section class="col" data-col="' + c.id + '" aria-label="' + c.label + '"><div class="col-h"><div class="col-t"><span class="dot" style="background:' + c.color + '"></span>' + c.label + '</div><span class="count">' + items.length + '</span></div>' +
+      (items.length ? items.map(card).join('') : '<div class="empty">Nenhuma tarefa aqui</div>') + '</section>';
+  }).join('');
+}
+
+const board = $('#board');
+board.addEventListener('dragstart', e => { const c = e.target.closest('.card'); if (!c) return; dragId = c.dataset.id; c.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); });
+board.addEventListener('dragend', () => { dragId = null; document.querySelectorAll('.drag,.over').forEach(x => x.classList.remove('drag', 'over')); });
+board.addEventListener('dragover', e => { const c = e.target.closest('.col'); if (!c || !dragId) return; e.preventDefault(); document.querySelectorAll('.over').forEach(x => x !== c && x.classList.remove('over')); c.classList.add('over'); });
+board.addEventListener('drop', e => { const c = e.target.closest('.col'); if (!c || !dragId) return; e.preventDefault(); move(dragId, c.dataset.col); });
+board.addEventListener('change', e => { if (e.target.classList.contains('mv')) move(e.target.closest('.card').dataset.id, e.target.value); });
+document.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+  filter = b.dataset.f; document.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render();
+}));
+$('#refresh').addEventListener('click', load);
+load();
+setInterval(() => { if (document.visibilityState === 'visible' && !dragId) load(); }, 60000);
+</script>
+</body>
+</html>
