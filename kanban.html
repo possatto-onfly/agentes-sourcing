@@ -54,6 +54,21 @@
   a.mail { color: var(--brand-d); font-size: 12px; font-weight: 500; text-decoration: none; }
   a.mail:hover { text-decoration: underline; }
   .empty { text-align: center; font-size: 12px; color: var(--ink3); padding: 24px 8px; }
+  button.primary { height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: var(--brand); color: #fff; font: 500 14px Poppins, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+  button.primary:hover { background: var(--brand-d); }
+  button.add { width: 28px; height: 28px; border-radius: 999px; border: none; background: #fff; color: var(--ink2); font-size: 18px; line-height: 1; cursor: pointer; }
+  button.add:hover { background: var(--brand-bg); color: var(--brand-d); }
+  .col-r { display: flex; align-items: center; gap: 6px; }
+  dialog { border: none; border-radius: 16px; padding: 0; width: min(480px, calc(100vw - 32px)); box-shadow: 0 24px 64px rgba(18,22,28,.28); font-family: Poppins, sans-serif; color: var(--ink); }
+  dialog::backdrop { background: rgba(18,22,28,.48); }
+  form.nt { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  form.nt h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  form.nt label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink2); }
+  form.nt input, form.nt select, form.nt textarea { height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #C9CFD8; font: 14px Poppins, sans-serif; color: var(--ink); background: #fff; }
+  form.nt textarea { height: 72px; padding: 8px 12px; resize: vertical; }
+  form.nt input:focus, form.nt select:focus, form.nt textarea:focus { outline: 2px solid var(--brand-d); outline-offset: 0; border-color: var(--brand-d); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btns { display: flex; justify-content: flex-end; gap: 8px; }
   #msg { padding: 48px 32px; text-align: center; color: var(--ink2); font-size: 14px; }
 </style>
 </head>
@@ -66,8 +81,22 @@
   <div class="tools">
     <span class="sync" id="sync" role="status" aria-live="polite"></span>
     <button class="ghost" id="refresh" type="button">Atualizar</button>
+    <button class="primary" id="newTask" type="button"><span aria-hidden="true">+</span> Nova tarefa</button>
   </div>
 </header>
+<dialog id="dlg" aria-labelledby="dlgT">
+  <form class="nt" id="frm" method="dialog">
+    <h2 id="dlgT">Nova tarefa</h2>
+    <label>Título<input id="fTitulo" required maxlength="300" placeholder="Ex.: Enviar ficha de cadastro à Azul"></label>
+    <div class="row2">
+      <label>Responsável<input id="fResp" maxlength="100" placeholder="Nome"></label>
+      <label>Prazo<input id="fPrazo" type="date"></label>
+    </div>
+    <label>Coluna<select id="fStatus"><option value="a fazer">A fazer</option><option value="em andamento">Em andamento</option><option value="concluida">Concluídas</option></select></label>
+    <label>Observação<textarea id="fObs" maxlength="500" placeholder="Opcional"></textarea></label>
+    <div class="btns"><button class="ghost" type="button" id="fCancel">Cancelar</button><button class="primary" type="submit">Salvar na planilha</button></div>
+  </form>
+</dialog>
 <div class="filters" role="group" aria-label="Filtrar por origem">
   <button class="chip" type="button" data-f="todas" aria-pressed="true">Todas</button>
   <button class="chip" type="button" data-f="Gmail" aria-pressed="false">Gmail</button>
@@ -149,7 +178,7 @@ function render() {
   $('#sub').textContent = abertas.length + ' abertas · ' + at + ' atrasadas · ' + tasks.filter(t => t.status === 'concluida').length + ' concluídas';
   $('#board').innerHTML = COLS.map(c => {
     const items = v.filter(t => t.status === c.id).sort((a, b) => (a.prazo || '9999') < (b.prazo || '9999') ? -1 : 1);
-    return '<section class="col" data-col="' + c.id + '" aria-label="' + c.label + '"><div class="col-h"><div class="col-t"><span class="dot" style="background:' + c.color + '"></span>' + c.label + '</div><span class="count">' + items.length + '</span></div>' +
+    return '<section class="col" data-col="' + c.id + '" aria-label="' + c.label + '"><div class="col-h"><div class="col-t"><span class="dot" style="background:' + c.color + '"></span>' + c.label + '</div><div class="col-r"><span class="count">' + items.length + '</span><button type="button" class="add" data-add="' + c.id + '" aria-label="Nova tarefa em ' + c.label + '">+</button></div></div>' +
       (items.length ? items.map(card).join('') : '<div class="empty">Nenhuma tarefa aqui</div>') + '</section>';
   }).join('');
 }
@@ -164,6 +193,28 @@ document.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () =
   filter = b.dataset.f; document.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render();
 }));
 $('#refresh').addEventListener('click', load);
+
+// ===== Nova tarefa =====
+const dlg = $('#dlg');
+function openNew(status) {
+  $('#frm').reset(); $('#fStatus').value = status || 'a fazer';
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  $('#fTitulo').focus();
+}
+$('#newTask').addEventListener('click', () => openNew('a fazer'));
+board.addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (b) openNew(b.dataset.add); });
+$('#fCancel').addEventListener('click', () => dlg.close());
+$('#frm').addEventListener('submit', e => {
+  e.preventDefault();
+  const titulo = $('#fTitulo').value.trim();
+  if (!titulo) return;
+  const t = { id: 'tmp' + Date.now(), titulo, resp: $('#fResp').value.trim() || '—', prazo: $('#fPrazo').value, status: $('#fStatus').value, obs: $('#fObs').value.trim(), origem: 'Manual' };
+  tasks.push(t); render(); dlg.close();
+  setSync('Salvando…');
+  fetch(API, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ action: 'tarefa-nova', titulo: t.titulo, resp: $('#fResp').value.trim(), prazo: t.prazo, status: t.status, obs: t.obs }) })
+    .then(() => { setSync('Salvo'); setTimeout(load, 3000); })
+    .catch(() => setSync('Erro ao salvar'));
+});
 load();
 setInterval(() => { if (document.visibilityState === 'visible' && !dragId) load(); }, 60000);
 </script>
