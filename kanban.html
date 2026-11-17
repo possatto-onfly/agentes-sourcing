@@ -137,17 +137,41 @@ function load() {
     .catch(e => { setSync('Erro ao sincronizar'); $('#msg').hidden = false; $('#msg').textContent = 'Não foi possível carregar as tarefas (' + e.message + '). Confira se você está logado com a conta Onfly e se a nova versão do Apps Script foi implantada.'; });
 }
 
+// Grava na planilha com um formulário escondido (mesmo método do painel): envia o login Google, que o Apps Script exige
+function post(fields) {
+  return new Promise(res => {
+    const name = 'k' + Date.now() + Math.random().toString(36).slice(2, 6);
+    const fr = document.createElement('iframe');
+    fr.name = name; fr.style.display = 'none';
+    let loads = 0, done = false;
+    const fin = () => { if (done) return; done = true; res(); setTimeout(() => fr.remove(), 120000); };
+    fr.onload = () => { if (++loads >= 2) fin(); };
+    document.body.appendChild(fr);
+    const f = document.createElement('form');
+    f.method = 'POST'; f.action = API; f.target = name; f.style.display = 'none';
+    Object.entries(fields).forEach(([k, v]) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i); });
+    document.body.appendChild(f); f.submit(); f.remove();
+    setTimeout(fin, 20000);
+  });
+}
+
 function save(id, status) {
   setSync('Salvando…');
-  return fetch(API, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ action: 'tarefa', id, status }) })
-    .then(() => setSync('Salvo'))
-    .catch(() => { setSync('Erro ao salvar'); });
+  return post({ action: 'tarefa', id, status }).then(() => setSync('Salvo'));
 }
 
 function move(id, status) {
   const t = tasks.find(x => x.id === id);
   if (!t || t.status === status) return;
-  t.status = status; render(); save(id, status);
+  t.status = status; render();
+  save(id, status).then(() => setTimeout(() => load().then(() => {
+    const n = tasks.find(x => x.id === id);
+    if (n && n.status !== status) {
+      setSync('Não salvou na planilha');
+      $('#msg').hidden = false;
+      $('#msg').textContent = 'A mudança de coluna não foi gravada na planilha. Confira se a versão mais nova do código foi colada no Apps Script e implantada como "Nova versão".';
+    }
+  }), 3000));
 }
 
 function visible() {
@@ -211,9 +235,8 @@ $('#frm').addEventListener('submit', e => {
   const t = { id: 'tmp' + Date.now(), titulo, resp: $('#fResp').value.trim() || '—', prazo: $('#fPrazo').value, status: $('#fStatus').value, obs: $('#fObs').value.trim(), origem: 'Manual' };
   tasks.push(t); render(); dlg.close();
   setSync('Salvando…');
-  fetch(API, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ action: 'tarefa-nova', titulo: t.titulo, resp: $('#fResp').value.trim(), prazo: t.prazo, status: t.status, obs: t.obs }) })
-    .then(() => { setSync('Salvo'); setTimeout(load, 3000); })
-    .catch(() => setSync('Erro ao salvar'));
+  post({ action: 'tarefa-nova', titulo: t.titulo, resp: $('#fResp').value.trim(), prazo: t.prazo, status: t.status, obs: t.obs })
+    .then(() => { setSync('Salvo'); setTimeout(load, 1000); });
 });
 load();
 setInterval(() => { if (document.visibilityState === 'visible' && !dragId) load(); }, 60000);
